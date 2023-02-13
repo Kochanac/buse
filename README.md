@@ -7,7 +7,7 @@
 ## Requirements
 
 * GNU Make
-* Linux Kernel 5.11 or newer
+* Linux Kernel 5.15 (or maybe newer)
 * Linux Kernel Headers
 
 ## Installation

@@ -118,7 +118,7 @@ int buse_blkdev_init(struct buse *buse)
 	size_t writelist_size = max_writes * sizeof(struct writelist_item);
 	unsigned int max_hw_sectors;
 
-	blkdev->disk = alloc_disk_node(1, NUMA_NO_NODE);
+	blkdev->disk = blk_alloc_disk(1);
 	if (!blkdev->disk) {
 		ret = -ENOMEM;
 		goto err;
@@ -130,7 +130,7 @@ int buse_blkdev_init(struct buse *buse)
 	if (ret)
 		goto err_disk;
 
-	blkdev->request_queue = blk_mq_init_queue_data(tag_set, buse);
+	blkdev->request_queue = blkdev->disk->queue;
 	if (IS_ERR(blkdev->request_queue)) {
 		ret = PTR_ERR(blkdev->request_queue);
 		goto err_tag;
