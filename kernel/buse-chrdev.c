@@ -363,14 +363,20 @@ static int chrdev_queue_init(struct buse_chrdev *chrdev, dev_t minor, char *name
 	int ret;
 
 	chrdev->region = minor;
+
+	printk(KERN_DEBUG "buse: chrdev_queue_init: new chardev queue, name %s", chrdev->cdev.kobj.name);
+
 	cdev_init(&chrdev->cdev, fops);
 	ret = cdev_add(&chrdev->cdev, minor, 1);
-	if (ret < 0)
+	if (ret < 0) {
+		printk(KERN_ERR "buse: chrdev_queue_init: cdev_add error code %d", ret);
 		goto err;
+	}
 
 	chrdev->dev = device_create(buse_chrdev_class, NULL, minor, NULL,"%s%d", name, i);
 	if (IS_ERR(chrdev->dev)) {
 		ret = PTR_ERR(chrdev->dev);
+		printk(KERN_ERR "buse: chrdev_queue_init: device_create error code %d", ret);
 		goto err_cdev;
 	}
 
@@ -440,15 +446,22 @@ static int chrdev_rqueues_init(struct buse *buse)
 	char name[DISK_NAME_LEN];
 	snprintf(name, DISK_NAME_LEN, "%s%llu-r", buse_blkdev_name, buse->index);
 
+	printk(KERN_DEBUG "buse: initing read character device %s", name);
 	ret = alloc_chrdev_region(&minor, 0, buse->num_queues, name);
-	if (ret < 0)
+	if (ret < 0) {
+		printk(KERN_ERR "buse: chrdev_rqueues_init: alloc_chrdev_region failed, code %d", ret);
 		goto err;
+	}
+	printk(KERN_DEBUG "buse: initing character device %s, res = %d, num_queues = %d", name, ret, buse->num_queues);
 
 	for (i = 0, q = buse->queues; i < buse->num_queues; i++, q++, minor++) {
+		printk(KERN_DEBUG "buse: initing queue %s", name);
 		rq = &q->r;
 		ret = chrdev_queue_init(&rq->chrdev, minor, name, i, &chrdev_fops_rqueue);
-		if (ret)
+		if (ret) {
+			printk(KERN_ERR "buse: chrdev_rqueues_init: chrdev_queue_init failed, code %d", ret);
 			goto err_alloc;
+		}
 	}
 
 	return 0;
@@ -475,16 +488,24 @@ static int chrdev_wqueues_init(struct buse *buse)
 	dev_t minor;
 	char name[DISK_NAME_LEN];
 	snprintf(name, DISK_NAME_LEN, "%s%llu-w", buse_blkdev_name, buse->index);
-
+	
+	printk(KERN_DEBUG "buse: initing write character device %s", name);
 	ret = alloc_chrdev_region(&minor, 0, buse->num_queues, name);
-	if (ret < 0)
+	if (ret < 0) {
+		printk(KERN_ERR "buse: chrdev_wqueues_init: alloc_chrdev_region failed, code %d", ret);
 		goto err;
+	}
+
+	printk(KERN_DEBUG "buse: initing character device %s, res = %d, num_queues = %d", name, ret, buse->num_queues);
 
 	for (i = 0, q = buse->queues; i < buse->num_queues; i++, q++, minor++) {
+		printk(KERN_DEBUG "buse: initing write queue %s", name);
 		wq = &q->w;
 		ret = chrdev_queue_init(&wq->chrdev, minor, name, i, &chrdev_fops_wqueue);
-		if (ret)
+		if (ret) {
+			printk(KERN_ERR "buse: chrdev_wqueues_init: chrdev_queue_init failed, code %d", ret);
 			goto err_alloc;
+		}
 	}
 
 	return 0;
@@ -508,12 +529,16 @@ int buse_chrdev_init(struct buse *buse)
 	int ret;
 
 	ret = chrdev_wqueues_init(buse);
-	if (ret)
+	if (ret) {
+		printk(KERN_ERR "buse: failed to init write queues");
 		goto err;
+	}
 
 	ret = chrdev_rqueues_init(buse);
-	if (ret)
+	if (ret) {
+		printk(KERN_ERR "buse: failed to init read queues");
 		goto err_wqueues;
+	}
 
 	return 0;
 

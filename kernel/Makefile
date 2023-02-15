@@ -13,7 +13,7 @@ KERNELDIR := $(MODULEDIR)/build
 SOURCES := $(wildcard *.c)
 HEADERS := $(wildcard *.h)
 
-#CC += -DDEBUG
+# CC += -DDEBUG
 
 build: buse.ko
 

@@ -22,9 +22,12 @@ struct buse *buse_add(uint index)
 {
 	int ret;
 
+	printk(KERN_DEBUG "buse: add new device\n");
+
 	struct buse *buse = kzalloc(sizeof(*buse), GFP_KERNEL);
 	if (!buse) {
 		ret = -ENOMEM;
+		printk(KERN_ERR "buse: error kzalloc\n");
 		goto err;
 	}
 
@@ -63,13 +66,17 @@ void buse_blkdev_init_cond(struct buse *buse)
 
 	if (!buse_wqueues_bound(buse) ||
 			!buse_rqueues_bound(buse) ||
-			buse->blkdev.created)
+			buse->blkdev.created) {
+		printk(KERN_DEBUG "buse: not all queues are bound. not registering disk");
 		return;
+	}
+		
 
 	buse->blkdev.created = true;
 	buse_gendisk_register(buse);
 	return;
 
+	printk(KERN_DEBUG "buse: all queues is bound. creating block device");
 	ret = buse_blkdev_init(buse);
 	if (ret)
 		goto err;
@@ -87,27 +94,46 @@ int buse_on(struct buse *buse)
 {
 	int ret;
 
+	printk(KERN_DEBUG "buse: buse on\n");
+
 	buse->queues = kcalloc(buse->hw_queues, sizeof(*buse->queues), GFP_KERNEL);
 	if (!buse->queues) {
+		printk(KERN_ERR "buse: kcalloc failed\n");
 		ret = -ENOMEM;
 		goto err;
 	}
 
 	ret = buse_blkdev_init(buse);
-	if (ret)
+	if (ret) {
+		printk(KERN_ERR "buse: error initing block device, code %d\n", ret);
 		goto err_queues;
+	}
+
+	printk(KERN_DEBUG "buse: succesfully inited block device\n");
 
 	ret = buse_chrdev_init(buse);
-	if (ret)
+	if (ret) {
+		printk(KERN_ERR "buse: error initing character device, code %d\n", ret);
 		goto err_blk;
+	}
+
+	printk(KERN_DEBUG "buse: succesfully inited char devices\n");
 
 	ret = buse_rqueues_init(buse);
-	if (ret)
+	if (ret) {
+		printk(KERN_ERR "buse: error initing read queues, code %d\n", ret);
 		goto err_chr;
+	}
+
+	printk(KERN_DEBUG "buse: succesfully inited read queues\n");
 
 	ret = buse_wqueues_init(buse);
-	if (ret)
+	if (ret) {
+		printk(KERN_ERR "buse: error initing write queues, code %d\n", ret);
 		goto err_r_init;
+	}
+
+	printk(KERN_DEBUG "buse: succesfully inited write queues\n");
 
 	return 0;
 
@@ -204,6 +230,7 @@ static int __init buse_init(void)
 	if (ret)
 		goto err_class;
 
+	printk(KERN_DEBUG "buse: init success\n");
 	return 0;
 
 err_class:

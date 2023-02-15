@@ -11,12 +11,15 @@
 #include "buse-wqueue.h"
 #include "main.h"
 
+// https://www.kernel.org/doc/html/v5.15/block/blk-mq.html
+
 /*
- * Init function called for every queue of created device. We just fill user data and compute the
- * queue id.
+ * Init function called for every hardware queue of created device. We just fill user data and compute the
+ * queue id. 
  */
 static int buse_init_hctx(struct blk_mq_hw_ctx *hw_ctx, void *driver_data, unsigned int hw_ctx_id)
 {
+	printk(KERN_DEBUG "buse: buse_init_hctx called");
 	struct buse *buse = hw_ctx->queue->queuedata;
 	struct buse_queue *q = buse->queues;
 
@@ -118,21 +121,25 @@ int buse_blkdev_init(struct buse *buse)
 	size_t writelist_size = max_writes * sizeof(struct writelist_item);
 	unsigned int max_hw_sectors;
 
-	blkdev->disk = blk_alloc_disk(1);
-	if (!blkdev->disk) {
-		ret = -ENOMEM;
-		goto err;
-	}
-
 	buse_set_tag_set(buse);
 
 	ret = blk_mq_alloc_tag_set(tag_set);
-	if (ret)
+	if (ret) {
+		printk(KERN_ERR "buse: buse_blkdev_init: blk_mq_alloc_tag_set failed, code %d\n", ret);
 		goto err_disk;
+	}
+
+	blkdev->disk = blk_mq_alloc_disk(&buse->blkdev.tag_set, buse);
+	if (!blkdev->disk) {
+		ret = -ENOMEM;
+		printk(KERN_ERR "buse: buse_blkdev_init: blk_mq_alloc_disk failed, code %d\n", ret);
+		goto err;
+	}
 
 	blkdev->request_queue = blkdev->disk->queue;
 	if (IS_ERR(blkdev->request_queue)) {
 		ret = PTR_ERR(blkdev->request_queue);
+		printk(KERN_ERR "buse: queue error, code %d\n", ret);
 		goto err_tag;
 	}
 
@@ -177,6 +184,10 @@ int buse_blkdev_init(struct buse *buse)
 	if (buse->can_secure_erase)
 		blk_queue_flag_set(QUEUE_FLAG_SECERASE, blkdev->request_queue);
 
+	blk_queue_virt_boundary(blkdev->request_queue, buse->block_size - 1);
+
+	printk(KERN_DEBUG "buse: init blk disk seems ok");
+
 	return 0;
 
 err_tag:
@@ -205,10 +216,12 @@ void buse_blkdev_exit(struct buse *buse)
 /*
  * Registers the block device so that it is visible to the system.
  */
-void buse_gendisk_register(struct buse *buse)
+int buse_gendisk_register(struct buse *buse)
 {
 	struct gendisk *disk = buse->blkdev.disk;
+	int ret;
 
+	printk(KERN_DEBUG "buse: initing gendisk");
 	disk->major = buse_blkdev_major;
 	disk->minors = buse_blkdev_max_minors;
 	disk->first_minor = buse->index * disk->minors;
@@ -221,8 +234,15 @@ void buse_gendisk_register(struct buse *buse)
 	/* Capacity needs to be set to 0, otherwise add_disk() hangs! Correct
 	 * capacity is set afterwards. */
 	set_capacity(buse->blkdev.disk, 0);
-	add_disk(disk);
+	ret = add_disk(disk);
+	if (ret) {
+		printk(KERN_ERR "buse: failed to add disk, code = %d", ret);
+		goto ERR;
+	}
 	set_capacity(buse->blkdev.disk, buse->size >> SECTOR_SHIFT);
+
+ERR:
+	return ret;
 }
 
 /*

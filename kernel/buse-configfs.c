@@ -43,6 +43,8 @@ static ssize_t buse_power_store(struct config_item *item, const char *page, size
 	struct buse_wqueue *wq;
 	struct buse_rqueue *rq;
 
+	printk(KERN_DEBUG "buse: buse_power_store\n");
+
 	ret = kstrtobool(page, &power);
 	if (ret)
 		goto err;
@@ -77,8 +79,10 @@ static ssize_t buse_power_store(struct config_item *item, const char *page, size
 
 	if (power && !buse->queues) {
 		ret = buse_on(buse);
-		if (ret)
+		if (ret) {
+			printk(KERN_ERR "buse: failed to buse_on, code %d\n", ret);
 			goto err_mutex;
+		}
 	}
 
 	buse->power = power;
