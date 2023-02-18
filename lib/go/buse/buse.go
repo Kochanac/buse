@@ -60,20 +60,66 @@ type BuseReadWriter interface {
 
 // Options for created buse device.
 type Options struct {
-	Durable        bool
+	// Durable. If it is set to false then a weak flush mode is enabled.
+	Durable bool
+
+	// WriteChunkSize. Size (in bytes) of the chunk where write requests and
+	// corresponding data are batched. Chunk is the smallest unit of data sent
+	// to userspace (with the exception of flushes). Needs to be divisible by BlockSize.
 	WriteChunkSize int64
-	BlockSize      int64
-	IOMin          int64
-	IOOpt          int64
-	Threads        int
-	Major          int64
-	WriteShmSize   int64
-	ReadShmSize    int64
-	Size           int64
-	CollisionArea  int64
-	QueueDepth     int64
-	Scheduler      bool
-	CPUsPerNode    int
+
+	// BlockSize. The minimum block size (in bytes) the block device can handle.
+	// Only 512 and 4096 are currently accepted (this is not a hard requirement
+	// and may be changed in the future, the restriction was imposed to
+	// minimize the testing surface).
+	BlockSize int64
+
+	// IOMin. Minimal IO.
+	IOMin int64
+
+	// IOOpt. Optimal IO.
+	IOOpt int64
+
+	// Threads. Number of threads (more precisely goroutines) to use. This
+	// implies the number of hardware queues (hw_queues).
+	Threads int
+
+	// Major. The numeric suffix for the created block device. I.e. if Major = 7
+	//then device /dev/buse7 is created with configfs directory in /sys/config/
+	//kernel/buse/7.
+	Major int64
+
+	// WriteShmSize. Size (in bytes) of the shared memory between the kernel
+	// and userspace of each write queue. Data of write chunks are stored in
+	// the shared memory, hence size of the shared memory limits the number
+	// of write requests pending in the userspace.
+	WriteShmSize int64
+
+	// ReadShmSize. Size (in bytes) of the shared memory between the kernel
+	// and userspace of each read queue. For every read request, an appropriately-
+	// sized memory slot is reserved in the shared memory of the read queue,
+	// and its offset is sent to the userspace along with the read request.
+	ReadShmSize int64
+
+	// Size (in bytes) of the block device. Note that if the userspace driver
+	// and file system support it, block devices can change its size while in use.
+	Size int64
+
+	// CollisionArea. Size (in bytes) of the area sharing the same write
+	// sequential counter. This is mainly for performance tuning.
+	CollisionArea int64
+
+	// QueueDepth. Depth of each hardware queue specified as the number of
+	// outstanding requests.
+	QueueDepth int64
+
+	// Scheduler. If set to false, the I/O request should go directly to hardware
+	// dispatch queues, bypassing the staging area of software queues. This
+	// means no merging, reordering etc. of the I/O requests will be done.
+	Scheduler bool
+
+	// CPUsPerNode is the number of virtual CPUs allowed to process single hw queue.
+	CPUsPerNode int
 }
 
 // Buse is a library wrapping the low level interaction with buse kernel module
@@ -164,8 +210,8 @@ func (b *Buse) checkOptions() error {
 		return errors.New("optimal IO has to be at least a block size and a power of 2")
 	}
 
-	if o.QueueDepth < 256 {
-		return errors.New("queue depth should be at least 256")
+	if o.QueueDepth < 10 {
+		return errors.New("queue depth should be at least 10")
 	}
 
 	return nil

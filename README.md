@@ -18,3 +18,6 @@ make
 sudo make install
 sudo modprobe buse
 ```
+
+## Paper
+https://asch.cz/pubs/2021-cuni.pdf
