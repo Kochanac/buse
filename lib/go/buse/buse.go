@@ -140,28 +140,32 @@ func (b *Buse) checkOptions() error {
 
 	totalMem, err := totalMemory()
 	if err != nil {
-		return errors.New("Cannot read total amount of ram!")
+		return errors.New("cannot read total amount of ram")
 	}
 
 	neededMemory := uint64(o.Threads) * uint64(o.WriteShmSize+o.ReadShmSize)
 	if neededMemory > totalMem {
-		return errors.New("Not enough memory!")
+		return errors.New("not enough memory")
 	}
 
 	if o.WriteShmSize%o.WriteChunkSize != 0 {
-		return errors.New("Write buffer size has to be a multiple of chunk size!")
+		return errors.New("write buffer size has to be a multiple of chunk size")
 	}
 
 	if o.BlockSize != 512 && o.BlockSize != 4096 {
-		return errors.New("Block size has to 512 or 4096!")
+		return errors.New("block size has to 512 or 4096")
 	}
 
 	if o.IOMin < o.BlockSize || o.IOMin%2 != 0 {
-		return errors.New("Minimal IO has to be at least a block size and a power of 2!")
+		return errors.New("minimal IO has to be at least a block size and a power of 2")
 	}
 
 	if o.IOOpt < o.BlockSize || o.IOOpt%2 != 0 {
-		return errors.New("Optimal IO has to be at least a block size and a power of 2!")
+		return errors.New("optimal IO has to be at least a block size and a power of 2")
+	}
+
+	if o.QueueDepth < 256 {
+		return errors.New("queue depth should be at least 256")
 	}
 
 	return nil
