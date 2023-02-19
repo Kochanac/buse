@@ -129,7 +129,7 @@ type Buse struct {
 	Options    Options
 }
 
-// Returns new instance of Buse configured with options o.
+// New returns new instance of Buse configured with options o.
 func New(rw BuseReadWriter, o Options) (Buse, error) {
 	buse := Buse{
 		ReadWriter: rw,
@@ -439,7 +439,7 @@ func (b *Buse) reader(chardev string, wgFunc *sync.WaitGroup, shm_size int) {
 	}
 }
 
-// Bind all the control queues and start processing read and write commands.
+// Run Bind all the control queues and start processing read and write commands.
 // This is done via multiple readers and writers. One worker per queue.
 func (b *Buse) Run() {
 	b.ReadWriter.BusePreRun()
@@ -456,7 +456,7 @@ func (b *Buse) Run() {
 	wg.Wait()
 }
 
-// Write value to configfs variable.
+// setConfig Write value to configfs variable.
 func (b *Buse) setConfig(variable string, value int64) error {
 	configFsPath := fmt.Sprint(configFsPath, "/", b.Options.Major, "/", variable)
 	byteValue := []byte(fmt.Sprint(value))
@@ -466,14 +466,14 @@ func (b *Buse) setConfig(variable string, value int64) error {
 	return err
 }
 
-// Stop buse device. All requests are refused but the device is still visible
+// StopDevice Stop buse device. All requests are refused but the device is still visible
 // and can be started again.
 func (b *Buse) StopDevice() error {
 	err := b.setConfig("power", 0)
 	return err
 }
 
-// Remove the device. The device is unregistered as block device.
+// RemoveDevice Remove the device. The device is unregistered as block device.
 func (b *Buse) RemoveDevice() error {
 	err := syscall.Rmdir(fmt.Sprint(configFsPath, "/", b.Options.Major))
 	b.ReadWriter.BusePostRemove()
